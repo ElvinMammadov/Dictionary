@@ -2,22 +2,15 @@ import 'dart:developer';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dic/core/data/models/answer_record.dart';
-import 'package:flutter_dic/core/data/repositories/quiz_result_repository.dart';
+import 'package:flutter_dic/core/data/repositories/listening_result_repository.dart';
 import 'package:flutter_dic/features/auth/auth.dart';
 import 'package:flutter_dic/features/quiz/domain/models/quiz_result.dart';
 import 'package:injectable/injectable.dart';
 import 'package:uuid/uuid.dart';
 
-/// Quiz-result repository backed by Cloud Firestore.
-///
-/// Firestore path: `users/{uid}/quizResults/{dateTime}`
-///
-/// The document ID is derived from the quiz's [QuizResult.dateTime] so that
-/// results taken on different devices never collide or duplicate each other
-/// during a sync merge.
 @lazySingleton
-class FirestoreQuizResultRepository implements QuizResultRepository {
-  FirestoreQuizResultRepository(this._authRepository)
+class FirestoreListeningResultRepository implements ListeningResultRepository {
+  FirestoreListeningResultRepository(this._authRepository)
       : _firestore = FirebaseFirestore.instance;
 
   final AuthRepository _authRepository;
@@ -26,23 +19,18 @@ class FirestoreQuizResultRepository implements QuizResultRepository {
   String? get _uid => _authRepository.currentUser?.uid;
 
   CollectionReference<Map<String, dynamic>> _results(String uid) =>
-      _firestore.collection('users/$uid/quizResults');
+      _firestore.collection('users/$uid/listeningResults');
 
-  /// UUID v5 namespace for quiz result IDs — arbitrary but fixed.
-  static const String _namespace =
-      '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
+  static const String _namespace = '6ba7b811-9dad-11d1-80b4-00c04fd430c9';
 
-  /// Stable doc-id derived from the quiz datetime (colons replaced so the
-  /// string is safe across all Firestore client versions).
   String _docId(QuizResult result) =>
       result.dateTime.toIso8601String().replaceAll(':', '-');
 
-  /// Deterministic UUID v5 derived from the result's datetime string.
   String _resultId(QuizResult result) =>
       const Uuid().v5(_namespace, _docId(result));
 
   @override
-  Future<void> insertQuizResult(QuizResult result) async {
+  Future<void> insertListeningResult(QuizResult result) async {
     final String? uid = _uid;
     if (uid == null) return;
     try {
@@ -56,13 +44,13 @@ class FirestoreQuizResultRepository implements QuizResultRepository {
         'takenAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      log('Firestore insertQuizResult error: $e',
-          name: 'FirestoreQuizResultRepository');
+      log('Firestore insertListeningResult error: $e',
+          name: 'FirestoreListeningResultRepository');
     }
   }
 
   @override
-  Future<List<QuizResult>> getQuizResults() async {
+  Future<List<QuizResult>> getListeningResults() async {
     final String? uid = _uid;
     if (uid == null) return <QuizResult>[];
     try {
@@ -73,18 +61,16 @@ class FirestoreQuizResultRepository implements QuizResultRepository {
               _fromData(d.data()))
           .toList();
     } catch (e) {
-      log('Firestore getQuizResults error: $e',
-          name: 'FirestoreQuizResultRepository');
+      log('Firestore getListeningResults error: $e',
+          name: 'FirestoreListeningResultRepository');
       return <QuizResult>[];
     }
   }
 
-  /// Statistics are computed from local SQLite; Firestore returns defaults.
   @override
-  Future<Map<String, dynamic>> getQuizStatistics() async =>
-      <String, dynamic>{'totalQuizzes': 0, 'averageScore': '0.0'};
+  Future<Map<String, dynamic>> getListeningStatistics() async =>
+      <String, dynamic>{'totalSessions': 0, 'averageScore': '0.0'};
 
-  /// Returns all remote results for use in the on-sign-in merge.
   Future<List<QuizResult>> getAllRemoteResults(String uid) async {
     try {
       final QuerySnapshot<Map<String, dynamic>> snap =
@@ -94,8 +80,8 @@ class FirestoreQuizResultRepository implements QuizResultRepository {
               _fromData(d.data()))
           .toList();
     } catch (e) {
-      log('Firestore getAllRemoteResults error: $e',
-          name: 'FirestoreQuizResultRepository');
+      log('Firestore getAllListeningRemoteResults error: $e',
+          name: 'FirestoreListeningResultRepository');
       return <QuizResult>[];
     }
   }
